@@ -1,0 +1,16 @@
+/envcraft
+/bin/
+/dist/
+
+*.exe
+*.out
+*.test
+coverage.txt
+vendor/
+
+.env
+envcraft.yaml
+
+.idea/
+.vscode/
+.DS_Store

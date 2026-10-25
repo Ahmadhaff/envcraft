@@ -1,0 +1,17 @@
+import { NotFoundError, type User, type UserRepository } from "../domain/user.js";
+
+export class MemoryUserRepository implements UserRepository {
+  private readonly users = new Map<string, User>();
+
+  async save(user: User): Promise<void> {
+    this.users.set(user.id, user);
+  }
+
+  async findById(id: string): Promise<User> {
+    const user = this.users.get(id);
+    if (!user) {
+      throw new NotFoundError();
+    }
+    return user;
+  }
+}

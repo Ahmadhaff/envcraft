@@ -1,0 +1,22 @@
+import type { User, UserRepository } from "../domain/user.js";
+
+export class UserService {
+  constructor(private readonly repo: UserRepository) {}
+
+  async create(id: string, email: string, name: string): Promise<User> {
+    const user = {
+      id: id.trim(),
+      email: email.trim(),
+      name: name.trim(),
+    };
+    if (!user.id || !user.email) {
+      throw new Error("id and email are required");
+    }
+    await this.repo.save(user);
+    return user;
+  }
+
+  get(id: string): Promise<User> {
+    return this.repo.findById(id);
+  }
+}

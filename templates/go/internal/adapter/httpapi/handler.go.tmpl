@@ -1,0 +1,71 @@
+package httpapi
+
+import (
+	"encoding/json"
+	"errors"
+	"net/http"
+
+	"{{.Module}}/internal/domain"
+	"{{.Module}}/internal/usecase"
+)
+
+// Handler exposes user use cases over HTTP.
+type Handler struct {
+	users *usecase.UserService
+	mux   *http.ServeMux
+}
+
+// NewHandler registers the service routes.
+func NewHandler(users *usecase.UserService) *Handler {
+	h := &Handler{users: users, mux: http.NewServeMux()}
+	h.mux.HandleFunc("GET /health", h.health)
+	h.mux.HandleFunc("POST /users", h.createUser)
+	h.mux.HandleFunc("GET /users/{id}", h.getUser)
+	return h
+}
+
+// Router returns the HTTP handler.
+func (h *Handler) Router() http.Handler { return h.mux }
+
+func (h *Handler) health(w http.ResponseWriter, _ *http.Request) {
+	writeJSON(w, http.StatusOK, map[string]string{"status": "ok", "service": "{{.Name}}"})
+}
+
+type createRequest struct {
+	ID    string `json:"id"`
+	Email string `json:"email"`
+	Name  string `json:"name"`
+}
+
+func (h *Handler) createUser(w http.ResponseWriter, r *http.Request) {
+	var req createRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid json"})
+		return
+	}
+	user, err := h.users.Create(req.ID, req.Email, req.Name)
+	if err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
+		return
+	}
+	writeJSON(w, http.StatusCreated, user)
+}
+
+func (h *Handler) getUser(w http.ResponseWriter, r *http.Request) {
+	user, err := h.users.Get(r.PathValue("id"))
+	if errors.Is(err, domain.ErrNotFound) {
+		writeJSON(w, http.StatusNotFound, map[string]string{"error": "not found"})
+		return
+	}
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		return
+	}
+	writeJSON(w, http.StatusOK, user)
+}
+
+func writeJSON(w http.ResponseWriter, status int, body any) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(status)
+	_ = json.NewEncoder(w).Encode(body)
+}

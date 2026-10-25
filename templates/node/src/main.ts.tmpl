@@ -1,0 +1,12 @@
+import { createApp } from "./interfaces/http/server.js";
+
+const raw = process.env.PORT ?? "3000";
+const port = Number(raw);
+if (!Number.isInteger(port) || port <= 0) {
+  throw new Error(`invalid PORT ${raw}`);
+}
+
+const server = createApp();
+server.listen(port, () => {
+  console.log("{{.Name}} listening on :" + port);
+});

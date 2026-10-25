@@ -1,0 +1,45 @@
+# yaml-language-server: $schema=https://goreleaser.com/static/schema.json
+version: 2
+
+project_name: envcraft
+
+before:
+  hooks:
+    - go mod tidy
+
+builds:
+  - id: envcraft
+    main: .
+    binary: envcraft
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - darwin
+      - linux
+      - windows
+    goarch:
+      - amd64
+      - arm64
+    ldflags:
+      - -s -w
+      - -X github.com/ahmadhaffoudhi/envcraft/cmd.version={{ .Version }}
+      - -X github.com/ahmadhaffoudhi/envcraft/cmd.commit={{ .ShortCommit }}
+      - -X github.com/ahmadhaffoudhi/envcraft/cmd.date={{ .CommitDate }}
+
+archives:
+  - formats: [tar.gz]
+    name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    format_overrides:
+      - goos: windows
+        formats: [zip]
+
+checksum:
+  name_template: checksums.txt
+
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"
+      - "^ci:"
