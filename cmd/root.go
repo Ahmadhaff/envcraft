@@ -25,7 +25,7 @@ var (
 var rootCmd = &cobra.Command{
 	Use:   "envcraft",
 	Short: "Local development toolkit",
-	Long: `Lock .env vaults with AES-256-GCM, check a local stack concurrently,
+	Long: `Lock .env vaults with AES-256-GCM, check a project contract concurrently,
 and scaffold Clean Architecture projects for Go and Node/TypeScript.`,
 	SilenceUsage:  true,
 	SilenceErrors: true,

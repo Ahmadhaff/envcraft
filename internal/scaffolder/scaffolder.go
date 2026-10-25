@@ -131,8 +131,11 @@ func dotify(rel string) string {
 	if i := strings.LastIndex(rel, "/"); i >= 0 {
 		base = rel[i+1:]
 	}
-	if base == "gitignore" {
+	switch base {
+	case "gitignore":
 		return strings.TrimSuffix(rel, "gitignore") + ".gitignore"
+	case "env.example":
+		return strings.TrimSuffix(rel, "env.example") + ".env.example"
 	}
 	return rel
 }

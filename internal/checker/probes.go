@@ -68,12 +68,96 @@ func Docker() Probe {
 
 // Go reports the local Go toolchain.
 func Go() Probe {
-	return commandProbe("go", "Go", "go version", "go", []string{"version"}, goDetail, runtimeFailure)
+	return GoAtLeast("")
+}
+
+// GoAtLeast reports the local Go toolchain and fails when it is older than minimum.
+// An empty minimum only checks that Go is installed.
+func GoAtLeast(minimum string) Probe {
+	return atLeastProbe(commandProbe("go", "Go", "go version", "go", []string{"version"}, goDetail, runtimeFailure), minimum)
 }
 
 // Node reports the local Node.js runtime.
 func Node() Probe {
-	return commandProbe("node", "Node.js", "node --version", "node", []string{"--version"}, nodeDetail, runtimeFailure)
+	return NodeAtLeast("")
+}
+
+// NodeAtLeast reports the local Node.js runtime and fails when it is older than minimum.
+// An empty minimum only checks that Node.js is installed.
+func NodeAtLeast(minimum string) Probe {
+	return atLeastProbe(commandProbe("node", "Node.js", "node --version", "node", []string{"--version"}, nodeDetail, runtimeFailure), minimum)
+}
+
+func atLeastProbe(probe Probe, minimum string) Probe {
+	if minimum == "" {
+		return probe
+	}
+	run := probe.Run
+	probe.Run = func(ctx context.Context) Result {
+		res := run(ctx)
+		if !res.OK {
+			return res
+		}
+		if versionAtLeast(res.Detail, minimum) {
+			return res
+		}
+		res.OK = false
+		res.Detail = res.Detail + ", want " + minimum + " or newer"
+		return res
+	}
+	return probe
+}
+
+func versionAtLeast(actual, minimum string) bool {
+	got := versionParts(actual)
+	want := versionParts(minimum)
+	if len(got) == 0 || len(want) == 0 {
+		return false
+	}
+	n := len(got)
+	if len(want) > n {
+		n = len(want)
+	}
+	for i := 0; i < n; i++ {
+		left, right := 0, 0
+		if i < len(got) {
+			left = got[i]
+		}
+		if i < len(want) {
+			right = want[i]
+		}
+		if left > right {
+			return true
+		}
+		if left < right {
+			return false
+		}
+	}
+	return true
+}
+
+func versionParts(raw string) []int {
+	raw = strings.TrimSpace(raw)
+	raw = strings.TrimPrefix(raw, "go")
+	raw = strings.TrimPrefix(raw, "v")
+	raw = strings.TrimPrefix(raw, "V")
+	var parts []int
+	for _, field := range strings.Split(raw, ".") {
+		n := 0
+		digits := false
+		for _, r := range field {
+			if r < '0' || r > '9' {
+				break
+			}
+			digits = true
+			n = n*10 + int(r-'0')
+		}
+		if !digits {
+			break
+		}
+		parts = append(parts, n)
+	}
+	return parts
 }
 
 func commandProbe(id, name, target, bin string, args []string, okDetail func(string) string, failDetail func(error, string) string) Probe {

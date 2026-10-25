@@ -34,6 +34,19 @@ func TestGenerateGoBuilds(t *testing.T) {
 	if !strings.Contains(string(body), "example.com/demo/internal/usecase") {
 		t.Fatalf("module was not rendered:\n%s", body)
 	}
+	contractBody, err := os.ReadFile(filepath.Join(out, "envcraft.yaml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(contractBody), "name: postgres") || !strings.Contains(string(contractBody), "DATABASE_URL") {
+		t.Fatalf("contract was not rendered:\n%s", contractBody)
+	}
+	if _, err := os.Stat(filepath.Join(out, "docker-compose.yml")); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(out, ".env.example")); err != nil {
+		t.Fatal(err)
+	}
 	if _, err := Generate(ScaffoldConfig{Stack: StackGo, ProjectName: "demo", ModulePath: "example.com/demo", OutDir: out}); !errors.Is(err, ErrNotEmpty) {
 		t.Fatalf("overwrite error %v", err)
 	}
@@ -67,6 +80,20 @@ func TestGenerateNodeFiles(t *testing.T) {
 	}
 	if pkg["name"] != "web" {
 		t.Fatalf("name %v", pkg["name"])
+	}
+	engines, _ := pkg["engines"].(map[string]any)
+	if engines["node"] != ">=22" {
+		t.Fatalf("engines %v", pkg["engines"])
+	}
+	contractBody, err := os.ReadFile(filepath.Join(out, "envcraft.yaml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(contractBody), "name: node") || !strings.Contains(string(contractBody), "PORT") {
+		t.Fatalf("contract was not rendered:\n%s", contractBody)
+	}
+	if _, err := os.Stat(filepath.Join(out, ".env.example")); err != nil {
+		t.Fatal(err)
 	}
 	server, err := os.ReadFile(filepath.Join(out, "src", "server.ts"))
 	if err != nil {
