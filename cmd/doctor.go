@@ -101,34 +101,34 @@ func runDoctor(cmd *cobra.Command, _ []string) error {
 
 func printProbePlan(w io.Writer, probes []checker.Probe) {
 	for _, probe := range probes {
-		fmt.Fprintf(w, "debug %s: %s\n", probe.Name, probe.Target)
+		writef(w, "debug %s: %s\n", probe.Name, probe.Target)
 	}
 }
 
 func runDoctorPlain(w io.Writer, events <-chan checker.Result, started time.Time, ctx context.Context) error {
-	fmt.Fprintln(w, banner(version))
-	fmt.Fprintln(w)
-	fmt.Fprintln(w, heading("Stack"))
-	fmt.Fprintln(w)
+	writeln(w, banner(version))
+	writeln(w)
+	writeln(w, heading("Stack"))
+	writeln(w)
 	passed, failed := 0, 0
 	for res := range events {
 		if res.OK {
 			passed++
-			fmt.Fprintln(w, passRow(res.Name, res.Detail, formatLatency(res.Duration)))
+			writeln(w, passRow(res.Name, res.Detail, formatLatency(res.Duration)))
 			continue
 		}
 		failed++
-		fmt.Fprintln(w, failRow(res.Name, res.Detail, formatLatency(res.Duration)))
+		writeln(w, failRow(res.Name, res.Detail, formatLatency(res.Duration)))
 	}
 	if errors.Is(ctx.Err(), context.Canceled) {
-		fmt.Fprintln(w)
-		fmt.Fprintln(w, hint("canceled"))
+		writeln(w)
+		writeln(w, hint("canceled"))
 		return &ExitError{Code: 130}
 	}
-	fmt.Fprintln(w)
-	fmt.Fprintln(w, rule())
-	fmt.Fprintln(w)
-	fmt.Fprintln(w, summary(passed, failed, time.Since(started)))
+	writeln(w)
+	writeln(w, rule())
+	writeln(w)
+	writeln(w, summary(passed, failed, time.Since(started)))
 	if failed > 0 {
 		return &ExitError{Code: 1}
 	}
@@ -221,41 +221,34 @@ func (m *doctorModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m *doctorModel) View() string {
-	var b strings.Builder
-	b.WriteString(banner(version))
-	b.WriteString("\n\n")
-	b.WriteString(heading("Stack"))
-	b.WriteString("\n\n")
+	lines := []string{
+		banner(version),
+		"",
+		heading("Stack"),
+		"",
+	}
 	for _, row := range m.rows {
 		switch {
 		case row.res == nil && m.canceled:
-			b.WriteString(idleRow(row.name, "canceled", ""))
+			lines = append(lines, idleRow(row.name, "canceled", ""))
 		case row.res == nil:
-			b.WriteString(pendingRow(m.spinner.View(), row.name, "checking…"))
+			lines = append(lines, pendingRow(m.spinner.View(), row.name, "checking…"))
 		case row.res.OK:
-			b.WriteString(passRow(row.res.Name, row.res.Detail, formatLatency(row.res.Duration)))
+			lines = append(lines, passRow(row.res.Name, row.res.Detail, formatLatency(row.res.Duration)))
 		default:
-			b.WriteString(failRow(row.res.Name, row.res.Detail, formatLatency(row.res.Duration)))
+			lines = append(lines, failRow(row.res.Name, row.res.Detail, formatLatency(row.res.Duration)))
 		}
-		b.WriteString("\n")
 	}
-	if m.done {
+	switch {
+	case m.done:
 		passed, failed := tally(m)
-		b.WriteString("\n")
-		b.WriteString(rule())
-		b.WriteString("\n")
-		b.WriteString(summary(passed, failed, time.Since(m.started)))
-		b.WriteString("\n")
-	} else if m.canceled {
-		b.WriteString("\n")
-		b.WriteString(hint("canceled"))
-		b.WriteString("\n")
-	} else {
-		b.WriteString("\n")
-		b.WriteString(hint("esc cancel"))
-		b.WriteString("\n")
+		lines = append(lines, "", rule(), summary(passed, failed, time.Since(m.started)))
+	case m.canceled:
+		lines = append(lines, "", hint("canceled"))
+	default:
+		lines = append(lines, "", hint("esc cancel"))
 	}
-	return b.String()
+	return strings.Join(lines, "\n") + "\n"
 }
 
 func (m *doctorModel) apply(res checker.Result) {

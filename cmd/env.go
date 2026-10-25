@@ -118,13 +118,13 @@ func printVaultResult(cmd *cobra.Command, message, dst string, elapsed time.Dura
 		return err
 	}
 	out := cmd.OutOrStdout()
-	fmt.Fprintln(out, banner(version))
-	fmt.Fprintln(out)
-	fmt.Fprintln(out, heading("Vault"))
-	fmt.Fprintln(out)
-	fmt.Fprintln(out, success(message))
-	fmt.Fprintln(out, sub(fmt.Sprintf("%s  ·  0600  ·  %s", formatBytes(info.Size()), formatLatency(elapsed))))
-	fmt.Fprintln(out, sub("source was left in place"))
+	writeln(out, banner(version))
+	writeln(out)
+	writeln(out, heading("Vault"))
+	writeln(out)
+	writeln(out, success(message))
+	writeln(out, sub(fmt.Sprintf("%s  ·  0600  ·  %s", formatBytes(info.Size()), formatLatency(elapsed))))
+	writeln(out, sub("source was left in place"))
 	return nil
 }
 
@@ -132,10 +132,10 @@ func runStatus(cmd *cobra.Command, _ []string) error {
 	plain := stringSetting(cmd, "file", "ENVCRAFT_ENV_FILE", "env.file", ".env")
 	vault := stringSetting(cmd, "vault", "ENVCRAFT_ENV_VAULT", "env.vault", ".env.vault")
 	out := cmd.OutOrStdout()
-	fmt.Fprintln(out, banner(version))
-	fmt.Fprintln(out)
-	fmt.Fprintln(out, heading("Vault"))
-	fmt.Fprintln(out)
+	writeln(out, banner(version))
+	writeln(out)
+	writeln(out, heading("Vault"))
+	writeln(out)
 	if err := printPlainStatus(out, plain); err != nil {
 		return err
 	}
@@ -152,20 +152,20 @@ func runStatus(cmd *cobra.Command, _ []string) error {
 func printPlainStatus(out io.Writer, path string) error {
 	info, err := os.Stat(path)
 	if errors.Is(err, os.ErrNotExist) {
-		fmt.Fprintln(out, idleRow(path, "missing", ""))
+		writeln(out, idleRow(path, "missing", ""))
 		return nil
 	}
 	if err != nil {
 		return err
 	}
-	fmt.Fprintln(out, passRow(path, "plaintext", formatBytes(info.Size())))
+	writeln(out, passRow(path, "plaintext", formatBytes(info.Size())))
 	return nil
 }
 
 func printVaultStatus(out io.Writer, path string) (bool, error) {
 	info, err := os.Stat(path)
 	if errors.Is(err, os.ErrNotExist) {
-		fmt.Fprintln(out, idleRow(path, "missing", ""))
+		writeln(out, idleRow(path, "missing", ""))
 		return false, nil
 	}
 	if err != nil {
@@ -173,10 +173,10 @@ func printVaultStatus(out io.Writer, path string) (bool, error) {
 	}
 	inspected, err := crypto.Inspect(path)
 	if err != nil {
-		fmt.Fprintln(out, failRow(path, "unrecognized", formatBytes(info.Size())))
+		writeln(out, failRow(path, "unrecognized", formatBytes(info.Size())))
 		return true, nil
 	}
-	fmt.Fprintln(out, passRow(path, fmt.Sprintf("vault v%d", inspected.Version), formatBytes(inspected.Size)))
+	writeln(out, passRow(path, fmt.Sprintf("vault v%d", inspected.Version), formatBytes(inspected.Size)))
 	return false, nil
 }
 

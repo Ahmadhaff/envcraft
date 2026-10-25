@@ -34,7 +34,7 @@ and scaffold Clean Architecture projects for Go and Node/TypeScript.`,
 			return configErr
 		}
 		if debug && viper.ConfigFileUsed() != "" {
-			fmt.Fprintf(cmd.ErrOrStderr(), "config %s\n", viper.ConfigFileUsed())
+			writef(cmd.ErrOrStderr(), "config %s\n", viper.ConfigFileUsed())
 		}
 		return nil
 	},
@@ -46,7 +46,7 @@ func Execute() {
 		var exitErr *ExitError
 		if errors.As(err, &exitErr) {
 			if exitErr.Err != nil {
-				fmt.Fprintln(os.Stderr, errorText(exitErr.Err.Error()))
+				writeln(os.Stderr, errorText(exitErr.Err.Error()))
 			}
 			code := exitErr.Code
 			if code == 0 {
@@ -54,7 +54,7 @@ func Execute() {
 			}
 			os.Exit(code)
 		}
-		fmt.Fprintln(os.Stderr, errorText(err.Error()))
+		writeln(os.Stderr, errorText(err.Error()))
 		os.Exit(1)
 	}
 }
@@ -128,20 +128,20 @@ func findDefaultConfig(dirs []string) string {
 
 func writeHelp(cmd *cobra.Command, _ []string) {
 	out := cmd.OutOrStdout()
-	fmt.Fprintln(out, banner(version))
-	fmt.Fprintln(out)
+	writeln(out, banner(version))
+	writeln(out)
 	body := cmd.Long
 	if body == "" {
 		body = cmd.Short
 	}
 	if body != "" {
-		fmt.Fprintln(out, body)
-		fmt.Fprintln(out)
+		writeln(out, body)
+		writeln(out)
 	}
-	fmt.Fprintln(out, heading("Usage"))
-	fmt.Fprintf(out, "  %s\n", cmd.UseLine())
+	writeln(out, heading("Usage"))
+	writef(out, "  %s\n", cmd.UseLine())
 	if cmd.Example != "" {
-		fmt.Fprintf(out, "\n%s\n%s\n", heading("Examples"), cmd.Example)
+		writef(out, "\n%s\n%s\n", heading("Examples"), cmd.Example)
 	}
 	if subs := visibleCommands(cmd); len(subs) > 0 {
 		width := 0
@@ -150,22 +150,22 @@ func writeHelp(cmd *cobra.Command, _ []string) {
 				width = n
 			}
 		}
-		fmt.Fprintf(out, "\n%s\n", heading("Commands"))
+		writef(out, "\n%s\n", heading("Commands"))
 		for _, c := range subs {
 			padded := c.Name() + strings.Repeat(" ", width-len(c.Name()))
-			fmt.Fprintf(out, "  %s  %s\n", accentText(padded), c.Short)
+			writef(out, "  %s  %s\n", accentText(padded), c.Short)
 		}
 	}
 	if cmd.HasAvailableLocalFlags() {
-		fmt.Fprintf(out, "\n%s\n%s", heading("Flags"), cmd.LocalFlags().FlagUsages())
+		writef(out, "\n%s\n%s", heading("Flags"), cmd.LocalFlags().FlagUsages())
 	}
 	// Persistent flags live in LocalFlags on the command that defined them.
 	// Children surface that same set through InheritedFlags.
 	if cmd.HasParent() && cmd.InheritedFlags().HasAvailableFlags() {
-		fmt.Fprintf(out, "\n%s\n%s", heading("Global Flags"), cmd.InheritedFlags().FlagUsages())
+		writef(out, "\n%s\n%s", heading("Global Flags"), cmd.InheritedFlags().FlagUsages())
 	}
 	if !cmd.HasParent() && cmd.HasAvailableSubCommands() {
-		fmt.Fprintf(out, "\nUse \"%s [command] --help\" for more information about a command.\n", cmd.CommandPath())
+		writef(out, "\nUse \"%s [command] --help\" for more information about a command.\n", cmd.CommandPath())
 	}
 }
 

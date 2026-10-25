@@ -75,17 +75,17 @@ func runGenerate(cmd *cobra.Command, args []string) error {
 		return err
 	}
 	out := cmd.OutOrStdout()
-	fmt.Fprintln(out, banner(version))
-	fmt.Fprintln(out)
-	fmt.Fprintln(out, heading("Scaffold"))
-	fmt.Fprintln(out)
+	writeln(out, banner(version))
+	writeln(out)
+	writeln(out, heading("Scaffold"))
+	writeln(out)
 	for _, file := range files {
-		fmt.Fprintln(out, success(file.RelPath))
+		writeln(out, success(file.RelPath))
 	}
-	fmt.Fprintln(out)
-	fmt.Fprintln(out, rule())
-	fmt.Fprintln(out)
-	fmt.Fprintln(out, doneLine(fmt.Sprintf("scaffolded %s project %s · %d files · %s", opts.Stack, opts.Name, len(files), formatLatency(time.Since(start)))))
+	writeln(out)
+	writeln(out, rule())
+	writeln(out)
+	writeln(out, doneLine(fmt.Sprintf("scaffolded %s project %s · %d files · %s", opts.Stack, opts.Name, len(files), formatLatency(time.Since(start)))))
 	return nil
 }
 

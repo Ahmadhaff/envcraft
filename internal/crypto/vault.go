@@ -210,7 +210,7 @@ func IsVault(path string) (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 	buf := make([]byte, 64)
 	n, err := f.Read(buf)
 	if err != nil && !errors.Is(err, io.EOF) {
@@ -276,20 +276,22 @@ func deriveKey(passphrase string, salt []byte) ([]byte, error) {
 	return key, nil
 }
 
+func writeBuilder(b *strings.Builder, parts ...string) {
+	for _, part := range parts {
+		_, _ = b.WriteString(part)
+	}
+}
+
 func armor(version int, payload []byte) []byte {
 	encoded := base64.StdEncoding.EncodeToString(payload)
 	var b strings.Builder
-	b.WriteString(headerPrefix)
-	b.WriteString(strconv.Itoa(version))
-	b.WriteByte('\n')
+	writeBuilder(&b, headerPrefix, strconv.Itoa(version), "\n")
 	for len(encoded) > 64 {
-		b.WriteString(encoded[:64])
-		b.WriteByte('\n')
+		writeBuilder(&b, encoded[:64], "\n")
 		encoded = encoded[64:]
 	}
 	if encoded != "" {
-		b.WriteString(encoded)
-		b.WriteByte('\n')
+		writeBuilder(&b, encoded, "\n")
 	}
 	return []byte(b.String())
 }
@@ -335,7 +337,7 @@ func readLimited(path string, limit int) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 	data, err := io.ReadAll(io.LimitReader(f, int64(limit)+1))
 	if err != nil {
 		return nil, err
