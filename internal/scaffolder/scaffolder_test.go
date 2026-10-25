@@ -15,17 +15,17 @@ import (
 func TestGenerateGoBuilds(t *testing.T) {
 	dir := t.TempDir()
 	out := filepath.Join(dir, "demo")
-	files, err := Generate(Options{
-		Stack:  StackGo,
-		Name:   "demo",
-		Module: "example.com/demo",
-		OutDir: out,
+	result, err := Generate(ScaffoldConfig{
+		Stack:       StackGo,
+		ProjectName: "demo",
+		ModulePath:  "example.com/demo",
+		OutDir:      out,
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(files) < 6 {
-		t.Fatalf("files %d", len(files))
+	if len(result.Files) < 6 {
+		t.Fatalf("files %d", len(result.Files))
 	}
 	body, err := os.ReadFile(filepath.Join(out, "cmd", "server", "main.go"))
 	if err != nil {
@@ -34,7 +34,7 @@ func TestGenerateGoBuilds(t *testing.T) {
 	if !strings.Contains(string(body), "example.com/demo/internal/usecase") {
 		t.Fatalf("module was not rendered:\n%s", body)
 	}
-	if _, err := Generate(Options{Stack: StackGo, Name: "demo", Module: "example.com/demo", OutDir: out}); !errors.Is(err, ErrNotEmpty) {
+	if _, err := Generate(ScaffoldConfig{Stack: StackGo, ProjectName: "demo", ModulePath: "example.com/demo", OutDir: out}); !errors.Is(err, ErrNotEmpty) {
 		t.Fatalf("overwrite error %v", err)
 	}
 
@@ -50,11 +50,11 @@ func TestGenerateGoBuilds(t *testing.T) {
 
 func TestGenerateNodeFiles(t *testing.T) {
 	out := filepath.Join(t.TempDir(), "web")
-	files, err := Generate(Options{Stack: StackNode, Name: "web", OutDir: out})
+	result, err := Generate(ScaffoldConfig{Stack: StackNode, ProjectName: "web", OutDir: out})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(files) == 0 {
+	if len(result.Files) == 0 {
 		t.Fatal("no files")
 	}
 	raw, err := os.ReadFile(filepath.Join(out, "package.json"))
@@ -68,12 +68,19 @@ func TestGenerateNodeFiles(t *testing.T) {
 	if pkg["name"] != "web" {
 		t.Fatalf("name %v", pkg["name"])
 	}
-	server, err := os.ReadFile(filepath.Join(out, "src", "interfaces", "http", "server.ts"))
+	server, err := os.ReadFile(filepath.Join(out, "src", "server.ts"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	if !strings.Contains(string(server), "createApp") {
 		t.Fatal("server template missing createApp")
+	}
+	health, err := os.ReadFile(filepath.Join(out, "src", "modules", "health", "health.controller.ts"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(health), "healthController") {
+		t.Fatal("health module was not rendered")
 	}
 	if _, err := os.Stat(filepath.Join(out, ".gitignore")); err != nil {
 		t.Fatal(err)

@@ -1,0 +1,11 @@
+import type { IncomingMessage, ServerResponse } from "node:http";
+
+export function healthController(serviceName: string) {
+  return function health(_req: IncomingMessage, res: ServerResponse): void {
+    const body = JSON.stringify({ status: "ok", service: serviceName });
+    res.writeHead(200, {
+      "content-type": "application/json; charset=utf-8",
+    });
+    res.end(body);
+  };
+}

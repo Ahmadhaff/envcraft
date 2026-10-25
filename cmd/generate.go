@@ -24,14 +24,15 @@ func newGenerateCmd() *cobra.Command {
 		Long: `Scaffold a Clean Architecture project.
 
   go      command, domain, use case, memory adapter, and HTTP API
-  node    domain, application, infrastructure, and node:http`,
+  node    TypeScript modules, application wiring, and an HTTP server`,
 		Example: `  envcraft generate
   envcraft generate go --name ledger --module github.com/acme/ledger
-  envcraft generate node --name web --out ./web`,
+  envcraft generate --stack node --name web --out ./web`,
 		Args:      cobra.MaximumNArgs(1),
 		ValidArgs: []string{"go", "node"},
 		RunE:      runGenerate,
 	}
+	cmd.Flags().String("stack", "", "Project stack: go or node")
 	cmd.Flags().String("name", "", "Project name")
 	cmd.Flags().String("module", "", "Go module path")
 	cmd.Flags().String("out", "", "Output directory (default: the project name)")
@@ -40,37 +41,51 @@ func newGenerateCmd() *cobra.Command {
 }
 
 func runGenerate(cmd *cobra.Command, args []string) error {
-	opts := scaffolder.Options{}
+	cfg := scaffolder.ScaffoldConfig{}
 	if len(args) == 1 {
 		stack, err := parseStack(args[0])
 		if err != nil {
 			return err
 		}
-		opts.Stack = stack
+		cfg.Stack = stack
 	}
 	var err error
-	opts.Name, err = cmd.Flags().GetString("name")
+	flagStack, err := cmd.Flags().GetString("stack")
 	if err != nil {
 		return err
 	}
-	opts.Module, err = cmd.Flags().GetString("module")
+	if flagStack != "" {
+		stack, err := parseStack(flagStack)
+		if err != nil {
+			return err
+		}
+		if cfg.Stack != "" && cfg.Stack != stack {
+			return fmt.Errorf("argument %s does not match --stack %s", cfg.Stack, flagStack)
+		}
+		cfg.Stack = stack
+	}
+	cfg.ProjectName, err = cmd.Flags().GetString("name")
 	if err != nil {
 		return err
 	}
-	opts.OutDir, err = cmd.Flags().GetString("out")
+	cfg.ModulePath, err = cmd.Flags().GetString("module")
 	if err != nil {
 		return err
 	}
-	opts.Force, err = cmd.Flags().GetBool("force")
+	cfg.OutDir, err = cmd.Flags().GetString("out")
 	if err != nil {
 		return err
 	}
-	if err := completeOptions(&opts); err != nil {
+	cfg.Force, err = cmd.Flags().GetBool("force")
+	if err != nil {
+		return err
+	}
+	if err := completeOptions(&cfg); err != nil {
 		return abort(err)
 	}
 
 	start := time.Now()
-	files, err := scaffolder.Generate(opts)
+	result, err := scaffolder.Generate(cfg)
 	if err != nil {
 		return err
 	}
@@ -79,55 +94,55 @@ func runGenerate(cmd *cobra.Command, args []string) error {
 	writeln(out)
 	writeln(out, heading("Scaffold"))
 	writeln(out)
-	for _, file := range files {
+	for _, file := range result.Files {
 		writeln(out, success(file.RelPath))
 	}
 	writeln(out)
 	writeln(out, rule())
 	writeln(out)
-	writeln(out, doneLine(fmt.Sprintf("scaffolded %s project %s · %d files · %s", opts.Stack, opts.Name, len(files), formatLatency(time.Since(start)))))
+	writeln(out, doneLine(fmt.Sprintf("scaffolded %s project %s · %d files · %s", cfg.Stack, cfg.ProjectName, len(result.Files), formatLatency(time.Since(start)))))
 	return nil
 }
 
-func completeOptions(opts *scaffolder.Options) error {
-	if opts.Stack != "" && opts.Stack != scaffolder.StackGo && opts.Stack != scaffolder.StackNode {
-		return fmt.Errorf("unknown stack %q", opts.Stack)
+func completeOptions(cfg *scaffolder.ScaffoldConfig) error {
+	if cfg.Stack != "" && cfg.Stack != scaffolder.StackGo && cfg.Stack != scaffolder.StackNode {
+		return fmt.Errorf("unknown stack %q", cfg.Stack)
 	}
-	if opts.Name != "" {
-		if err := scaffolder.ValidateName(opts.Name); err != nil {
+	if cfg.ProjectName != "" {
+		if err := scaffolder.ValidateName(cfg.ProjectName); err != nil {
 			return err
 		}
 	}
-	if opts.Module != "" {
-		if err := scaffolder.ValidateModule(opts.Module); err != nil {
+	if cfg.ModulePath != "" {
+		if err := scaffolder.ValidateModule(cfg.ModulePath); err != nil {
 			return err
 		}
 	}
-	if opts.Stack == "" || opts.Name == "" {
+	if cfg.Stack == "" || cfg.ProjectName == "" {
 		if !interactive() {
 			return errors.New("pass a stack and --name when stdin is not a terminal")
 		}
-		if err := promptIdentity(opts, opts.Stack == "", opts.Name == ""); err != nil {
+		if err := promptIdentity(cfg, cfg.Stack == "", cfg.ProjectName == ""); err != nil {
 			return err
 		}
 	}
-	if opts.Stack == scaffolder.StackGo && opts.Module == "" {
+	if cfg.Stack == scaffolder.StackGo && cfg.ModulePath == "" {
 		if !interactive() {
 			return errors.New("go scaffolds require --module when stdin is not a terminal")
 		}
-		if err := promptModule(opts); err != nil {
+		if err := promptModule(cfg); err != nil {
 			return err
 		}
 	}
-	if opts.OutDir == "" {
-		opts.OutDir = opts.Name
+	if cfg.OutDir == "" {
+		cfg.OutDir = cfg.ProjectName
 	}
 	return nil
 }
 
-func promptIdentity(opts *scaffolder.Options, needStack, needName bool) error {
-	stack := string(opts.Stack)
-	name := opts.Name
+func promptIdentity(cfg *scaffolder.ScaffoldConfig, needStack, needName bool) error {
+	stack := string(cfg.Stack)
+	name := cfg.ProjectName
 	var fields []huh.Field
 	if needStack {
 		fields = append(fields, huh.NewSelect[string]().
@@ -148,13 +163,13 @@ func promptIdentity(opts *scaffolder.Options, needStack, needName bool) error {
 	if err := huh.NewForm(huh.NewGroup(fields...)).WithTheme(formTheme()).Run(); err != nil {
 		return err
 	}
-	opts.Stack = scaffolder.Stack(stack)
-	opts.Name = name
+	cfg.Stack = scaffolder.Stack(stack)
+	cfg.ProjectName = name
 	return nil
 }
 
-func promptModule(opts *scaffolder.Options) error {
-	module := "example.com/" + strings.ToLower(opts.Name)
+func promptModule(cfg *scaffolder.ScaffoldConfig) error {
+	module := "example.com/" + strings.ToLower(cfg.ProjectName)
 	err := huh.NewForm(huh.NewGroup(
 		huh.NewInput().
 			Title("Go module path").
@@ -164,7 +179,7 @@ func promptModule(opts *scaffolder.Options) error {
 	if err != nil {
 		return err
 	}
-	opts.Module = module
+	cfg.ModulePath = module
 	return nil
 }
 

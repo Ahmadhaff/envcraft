@@ -1,4 +1,3 @@
-// Package scaffolder writes Clean Architecture projects from embedded templates.
 package scaffolder
 
 import (
@@ -11,8 +10,6 @@ import (
 	"sort"
 	"strings"
 	"text/template"
-
-	"github.com/ahmadhaffoudhi/envcraft/templates"
 )
 
 // Stack selects an embedded project template.
@@ -26,13 +23,13 @@ const (
 // ErrNotEmpty is returned when the output directory already has files.
 var ErrNotEmpty = errors.New("output directory is not empty")
 
-// Options controls one scaffold.
-type Options struct {
-	Stack  Stack
-	Name   string
-	Module string
-	OutDir string
-	Force  bool
+// ScaffoldConfig is the input for one generated project.
+type ScaffoldConfig struct {
+	Stack       Stack
+	ProjectName string
+	ModulePath  string
+	OutDir      string
+	Force       bool
 }
 
 // File is one rendered path, relative to OutDir.
@@ -41,9 +38,14 @@ type File struct {
 	Bytes   int
 }
 
+// Result is the set of files written by Generate.
+type Result struct {
+	Files []File
+}
+
 type templateData struct {
-	Name   string
-	Module string
+	ProjectName string
+	ModulePath  string
 }
 
 // ValidateName accepts project directory names.
@@ -84,102 +86,6 @@ func ValidateModule(module string) error {
 	return nil
 }
 
-// Generate renders the selected stack into OutDir.
-func Generate(opts Options) ([]File, error) {
-	if opts.Stack != StackGo && opts.Stack != StackNode {
-		return nil, fmt.Errorf("unknown stack %q", opts.Stack)
-	}
-	if err := ValidateName(opts.Name); err != nil {
-		return nil, err
-	}
-	if opts.Stack == StackGo {
-		if err := ValidateModule(opts.Module); err != nil {
-			return nil, err
-		}
-	}
-	if opts.OutDir == "" {
-		return nil, errors.New("output directory is required")
-	}
-	if err := ensureOut(opts.OutDir, opts.Force); err != nil {
-		return nil, err
-	}
-
-	rendered, err := render(opts)
-	if err != nil {
-		return nil, err
-	}
-	var written []File
-	for _, file := range rendered {
-		full, err := safeJoin(opts.OutDir, file.rel)
-		if err != nil {
-			return nil, err
-		}
-		if err := os.MkdirAll(filepath.Dir(full), 0o755); err != nil {
-			return nil, err
-		}
-		if err := os.WriteFile(full, file.body, 0o644); err != nil {
-			return nil, err
-		}
-		written = append(written, File{RelPath: file.rel, Bytes: len(file.body)})
-	}
-	sort.Slice(written, func(i, j int) bool { return written[i].RelPath < written[j].RelPath })
-	return written, nil
-}
-
-type renderedFile struct {
-	rel  string
-	body []byte
-}
-
-func render(opts Options) ([]renderedFile, error) {
-	root := string(opts.Stack)
-	data := templateData{Name: opts.Name, Module: opts.Module}
-	var rendered []renderedFile
-	err := fs.WalkDir(templates.FS, root, func(path string, entry fs.DirEntry, err error) error {
-		if err != nil {
-			return err
-		}
-		if entry.IsDir() {
-			return nil
-		}
-		rel := strings.TrimPrefix(path, root+"/")
-		rel = strings.TrimSuffix(rel, ".tmpl")
-		rel = dotify(rel)
-		body, err := templates.FS.ReadFile(path)
-		if err != nil {
-			return err
-		}
-		tmpl, err := template.New(rel).Option("missingkey=error").Parse(string(body))
-		if err != nil {
-			return fmt.Errorf("parse %s: %w", path, err)
-		}
-		var buf bytes.Buffer
-		if err := tmpl.Execute(&buf, data); err != nil {
-			return fmt.Errorf("render %s: %w", path, err)
-		}
-		rendered = append(rendered, renderedFile{rel: filepath.FromSlash(rel), body: buf.Bytes()})
-		return nil
-	})
-	if err != nil {
-		return nil, err
-	}
-	if len(rendered) == 0 {
-		return nil, fmt.Errorf("no templates for %s", opts.Stack)
-	}
-	return rendered, nil
-}
-
-func dotify(rel string) string {
-	base := rel
-	if i := strings.LastIndex(rel, "/"); i >= 0 {
-		base = rel[i+1:]
-	}
-	if base == "gitignore" {
-		return strings.TrimSuffix(rel, "gitignore") + ".gitignore"
-	}
-	return rel
-}
-
 func ensureOut(dir string, force bool) error {
 	info, err := os.Stat(dir)
 	if errors.Is(err, os.ErrNotExist) {
@@ -218,4 +124,123 @@ func safeJoin(root, rel string) (string, error) {
 		return "", fmt.Errorf("path escapes output dir: %s", rel)
 	}
 	return full, nil
+}
+
+func dotify(rel string) string {
+	base := rel
+	if i := strings.LastIndex(rel, "/"); i >= 0 {
+		base = rel[i+1:]
+	}
+	if base == "gitignore" {
+		return strings.TrimSuffix(rel, "gitignore") + ".gitignore"
+	}
+	return rel
+}
+
+func writeSecure(path string, body []byte) error {
+	dir := filepath.Dir(path)
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		return err
+	}
+	tmp, err := os.CreateTemp(dir, ".scaffold-*")
+	if err != nil {
+		return err
+	}
+	tmpName := tmp.Name()
+	success := false
+	defer func() {
+		if !success {
+			_ = os.Remove(tmpName)
+		}
+	}()
+	if _, err := tmp.Write(body); err != nil {
+		_ = tmp.Close()
+		return err
+	}
+	if err := tmp.Chmod(0o644); err != nil {
+		_ = tmp.Close()
+		return err
+	}
+	if err := tmp.Close(); err != nil {
+		return err
+	}
+	if err := replaceFile(tmpName, path); err != nil {
+		return err
+	}
+	if err := os.Chmod(path, 0o644); err != nil {
+		return err
+	}
+	success = true
+	return nil
+}
+
+func replaceFile(tmp, dst string) error {
+	err := os.Rename(tmp, dst)
+	if err == nil {
+		return nil
+	}
+	if _, statErr := os.Stat(dst); statErr != nil {
+		return err
+	}
+	if rmErr := os.Remove(dst); rmErr != nil {
+		return err
+	}
+	return os.Rename(tmp, dst)
+}
+
+func renderTree(root string, data templateData) ([]renderedFile, error) {
+	var rendered []renderedFile
+	err := fs.WalkDir(templateFS, root, func(path string, entry fs.DirEntry, walkErr error) error {
+		if walkErr != nil {
+			return walkErr
+		}
+		if entry.IsDir() {
+			return nil
+		}
+		rel := strings.TrimPrefix(path, root+"/")
+		rel = strings.TrimSuffix(rel, ".tmpl")
+		rel = dotify(rel)
+		body, err := templateFS.ReadFile(path)
+		if err != nil {
+			return err
+		}
+		tmpl, err := template.New(rel).Option("missingkey=error").Parse(string(body))
+		if err != nil {
+			return fmt.Errorf("parse %s: %w", path, err)
+		}
+		var buf bytes.Buffer
+		if err := tmpl.Execute(&buf, data); err != nil {
+			return fmt.Errorf("render %s: %w", path, err)
+		}
+		rendered = append(rendered, renderedFile{rel: filepath.FromSlash(rel), body: buf.Bytes()})
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	if len(rendered) == 0 {
+		return nil, fmt.Errorf("no templates for %s", root)
+	}
+	return rendered, nil
+}
+
+type renderedFile struct {
+	rel  string
+	body []byte
+}
+
+func writeAll(outDir string, rendered []renderedFile) ([]File, error) {
+	var written []File
+	for _, file := range rendered {
+		full, err := safeJoin(outDir, file.rel)
+		if err != nil {
+			return nil, err
+		}
+		if err := writeSecure(full, file.body); err != nil {
+			return nil, err
+		}
+		written = append(written, File{RelPath: file.rel, Bytes: len(file.body)})
+	}
+	sort.Slice(written, func(i, j int) bool { return written[i].RelPath < written[j].RelPath })
+	return written, nil
 }

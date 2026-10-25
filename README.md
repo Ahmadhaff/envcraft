@@ -4,7 +4,7 @@
 
 ## Install
 
-Requires Go 1.26 or newer. Current Cobra, Viper, and Charm releases set that floor. The scaffolds themselves stay on Go 1.22 and the standard library.
+Requires Go 1.26 or newer. Current Cobra, Viper, and Charm releases set that floor. Generated Go projects use the same version and the standard library.
 
 ```bash
 go build -o envcraft .
@@ -107,9 +107,9 @@ go build -ldflags "-X github.com/ahmadhaffoudhi/envcraft/cmd.version=0.1.0 -X gi
 ## Layout
 
 ```text
-cmd/                 cobra commands and terminal styles
-internal/checker/    concurrent probes
-internal/crypto/     AES-256-GCM vaults
-internal/scaffolder/ template rendering
-templates/           embedded Go and Node trees
+cmd/                              cobra commands and terminal styles
+internal/checker/                 concurrent probes
+internal/crypto/                  AES-256-GCM vaults
+internal/scaffolder/              embedded template engine
+internal/scaffolder/templates/    Go and Node Clean Architecture trees
 ```

@@ -1,0 +1,24 @@
+package main
+
+import (
+	"log"
+	"net/http"
+	"os"
+
+	"{{.ModulePath}}/internal/adapter/httpapi"
+	"{{.ModulePath}}/internal/adapter/memory"
+	"{{.ModulePath}}/internal/usecase"
+)
+
+func main() {
+	repo := memory.NewUserRepository()
+	interactor := usecase.NewUserInteractor(repo)
+	handler := httpapi.NewHandler(interactor)
+
+	addr := os.Getenv("ADDR")
+	if addr == "" {
+		addr = ":8080"
+	}
+	log.Printf("{{.ProjectName}} listening on %s", addr)
+	log.Fatal(http.ListenAndServe(addr, handler.Router()))
+}

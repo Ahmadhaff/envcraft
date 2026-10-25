@@ -1,0 +1,39 @@
+package usecase
+
+import (
+	"errors"
+	"strings"
+
+	"{{.ModulePath}}/internal/domain"
+)
+
+// UserInteractor is the application API for user commands.
+type UserInteractor struct {
+	repo domain.UserRepository
+}
+
+// NewUserInteractor wires the domain repository into the use case.
+func NewUserInteractor(repo domain.UserRepository) *UserInteractor {
+	return &UserInteractor{repo: repo}
+}
+
+// Create stores a user. ID and email are required.
+func (u *UserInteractor) Create(id, email, name string) (domain.User, error) {
+	user := domain.User{
+		ID:    strings.TrimSpace(id),
+		Email: strings.TrimSpace(email),
+		Name:  strings.TrimSpace(name),
+	}
+	if user.ID == "" || user.Email == "" {
+		return domain.User{}, errors.New("id and email are required")
+	}
+	if err := u.repo.Save(user); err != nil {
+		return domain.User{}, err
+	}
+	return user, nil
+}
+
+// Get loads a user by id.
+func (u *UserInteractor) Get(id string) (domain.User, error) {
+	return u.repo.FindByID(id)
+}
