@@ -84,11 +84,7 @@ func (raw fileDocument) contract() Contract {
 		c.Env.Vault = ".env.vault"
 	}
 	for _, service := range raw.Doctor.Services {
-		c.Doctor.Services = append(c.Doctor.Services, Service{
-			Name: service.Name,
-			Host: service.Host,
-			Port: service.Port,
-		})
+		c.Doctor.Services = append(c.Doctor.Services, Service(service))
 	}
 	for _, tool := range raw.Doctor.Tools {
 		c.Doctor.Tools = append(c.Doctor.Tools, Tool{
