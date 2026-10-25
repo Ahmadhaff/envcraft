@@ -1,4 +1,4 @@
-module github.com/ahmadhaffoudhi/envcraft
+module github.com/Ahmadhaff/envcraft
 
 go 1.26.0
 

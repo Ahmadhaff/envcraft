@@ -15,7 +15,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/spf13/cobra"
 
-	"github.com/ahmadhaffoudhi/envcraft/internal/checker"
+	"github.com/Ahmadhaff/envcraft/internal/checker"
 )
 
 func init() {

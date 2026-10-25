@@ -7,13 +7,16 @@
 Requires Go 1.26 or newer. Current Cobra, Viper, and Charm releases set that floor. Generated Go projects use the same version and the standard library.
 
 ```bash
-go build -o envcraft .
-./envcraft --help
+go install github.com/Ahmadhaff/envcraft@v1.1.0
+envcraft --help
 ```
 
-Install into your `GOBIN` from this checkout:
+The binary is installed into `$(go env GOPATH)/bin`. That directory must be on `PATH`.
+
+To build from a checkout of this repository:
 
 ```bash
+go build -o envcraft .
 go install .
 ```
 
@@ -101,7 +104,7 @@ go test -race ./...
 Version, commit, and date are set at link time:
 
 ```bash
-go build -ldflags "-X github.com/ahmadhaffoudhi/envcraft/cmd.version=0.1.0 -X github.com/ahmadhaffoudhi/envcraft/cmd.commit=abc -X github.com/ahmadhaffoudhi/envcraft/cmd.date=2026-10-25" .
+go build -ldflags "-X github.com/Ahmadhaff/envcraft/cmd.version=0.1.0 -X github.com/Ahmadhaff/envcraft/cmd.commit=abc -X github.com/Ahmadhaff/envcraft/cmd.date=2026-10-25" .
 ```
 
 ## Layout

@@ -22,9 +22,9 @@ builds:
       - arm64
     ldflags:
       - -s -w
-      - -X github.com/ahmadhaffoudhi/envcraft/cmd.version={{ .Version }}
-      - -X github.com/ahmadhaffoudhi/envcraft/cmd.commit={{ .ShortCommit }}
-      - -X github.com/ahmadhaffoudhi/envcraft/cmd.date={{ .CommitDate }}
+      - -X github.com/Ahmadhaff/envcraft/cmd.version={{ .Version }}
+      - -X github.com/Ahmadhaff/envcraft/cmd.commit={{ .ShortCommit }}
+      - -X github.com/Ahmadhaff/envcraft/cmd.date={{ .CommitDate }}
 
 archives:
   - formats: [tar.gz]

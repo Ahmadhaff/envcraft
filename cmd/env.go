@@ -11,7 +11,7 @@ import (
 	"github.com/charmbracelet/huh"
 	"github.com/spf13/cobra"
 
-	"github.com/ahmadhaffoudhi/envcraft/internal/crypto"
+	"github.com/Ahmadhaff/envcraft/internal/crypto"
 )
 
 func init() {
