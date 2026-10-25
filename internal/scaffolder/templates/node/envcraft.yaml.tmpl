@@ -1,0 +1,17 @@
+# Project contract written by envcraft init.
+# Passphrases are never read from this file.
+
+doctor:
+  host: 127.0.0.1
+  timeout: 2s
+  docker: false
+  tools:
+    - name: node
+      version: "22"
+
+env:
+  file: .env
+  vault: .env.vault
+  example: .env.example
+  required:
+    - PORT

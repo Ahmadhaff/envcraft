@@ -6,14 +6,21 @@
 
 Requires Go 1.26 or newer. Current Cobra, Viper, and Charm releases set that floor. Generated Go projects use the same version and the standard library.
 
+`go install` does not print anything when it succeeds, and it does not add an entry to `package.json`. The installer runs that command and then confirms the binary path:
+
 ```bash
-go install github.com/Ahmadhaff/envcraft@v1.1.0
-envcraft --help
+curl -fsSL https://raw.githubusercontent.com/Ahmadhaff/envcraft/main/scripts/install.sh | sh
 ```
 
-The binary is installed into `$(go env GOPATH)/bin`. That directory must be on `PATH`.
+From a checkout of this repository:
 
-To build from a checkout of this repository:
+```bash
+sh scripts/install.sh
+```
+
+The binary is installed into `$(go env GOPATH)/bin`, usually `~/go/bin`. If that directory is not on `PATH`, the installer prints the line to add.
+
+To build from a checkout without using the module proxy:
 
 ```bash
 go build -o envcraft .
@@ -31,6 +38,7 @@ That builds macOS amd64 and arm64, Linux amd64 and arm64, and Windows amd64 and 
 ## Commands
 
 ```bash
+envcraft init
 envcraft doctor
 envcraft env lock
 envcraft env unlock
@@ -39,7 +47,9 @@ envcraft generate go --name ledger --module github.com/acme/ledger
 envcraft generate node --name web
 ```
 
-`doctor` (`check`) runs every probe at once. The summary is wall-clock time. Each row is that check's own latency.
+`init` reads the current directory and writes `envcraft.yaml`. It uses the first Compose file it finds (`compose.yaml` or `docker-compose.yml`), the `go` line in `go.mod`, the `engines.node` range in `package.json`, and the keys in `.env.example`.
+
+`doctor` (`check`) runs every probe at once. The summary is wall-clock time. Each row is that check's own latency. When `envcraft.yaml` is a project contract, doctor checks that contract: published Compose ports, the Go or Node version the project asks for, and the required env keys. A local URL in `.env`, such as `postgres://127.0.0.1:5432/app`, is dialed. A URL that points outside the machine is left alone. Without a project contract, doctor keeps the built-in list:
 
 | Check | What it means |
 | --- | --- |
@@ -51,7 +61,7 @@ envcraft generate node --name web
 
 Port rows report reachability, not an authenticated session. A failed check exits `1`. Canceling exits `130`.
 
-`generate` (`gen`) writes a small Clean Architecture tree. With no flags in a terminal it asks for the stack, name, and Go module. `go` and `node` (alias `ts`) are the built-in stacks. The Go scaffold is standard-library only and includes a test.
+`generate` (`gen`) writes a small Clean Architecture tree plus `.env.example` and `envcraft.yaml`. The Go tree also includes a Compose file for Postgres. With no flags in a terminal it asks for the stack, name, and Go module. `go` and `node` (alias `ts`) are the built-in stacks. The Go service is standard-library only and includes a test. Its HTTP adapter stores users in memory. `DATABASE_URL` is the local database the contract checks.
 
 ## Vaults
 
@@ -113,6 +123,7 @@ go build -ldflags "-X github.com/Ahmadhaff/envcraft/cmd.version=0.1.0 -X github.
 cmd/                              cobra commands and terminal styles
 internal/checker/                 concurrent probes
 internal/crypto/                  AES-256-GCM vaults
+internal/contract/                project discovery and doctor contracts
 internal/scaffolder/              embedded template engine
 internal/scaffolder/templates/    Go and Node Clean Architecture trees
 ```

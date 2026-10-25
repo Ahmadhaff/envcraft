@@ -6,9 +6,17 @@ Run the tests:
 
     go test ./...
 
+Copy the env file and start Postgres, then check the contract:
+
+    cp .env.example .env
+    docker compose up -d
+    envcraft doctor
+
 Start the server:
 
     go run ./cmd/server
+
+The HTTP server stores users in memory. `DATABASE_URL` is the local Postgres service declared by `envcraft.yaml`.
 
 Routes:
 

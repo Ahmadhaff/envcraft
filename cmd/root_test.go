@@ -20,7 +20,7 @@ func TestRootHelp(t *testing.T) {
 		t.Fatal(err)
 	}
 	got := buf.String()
-	for _, want := range []string{"envcraft", "doctor", "generate", "vault"} {
+	for _, want := range []string{"envcraft", "doctor", "generate", "init", "vault"} {
 		if !strings.Contains(got, want) {
 			t.Fatalf("help missing %q\n%s", want, got)
 		}

@@ -1,6 +1,9 @@
 # Copy to ./envcraft.yaml or $XDG_CONFIG_HOME/envcraft/envcraft.yaml
 # (macOS: ~/Library/Application Support/envcraft/envcraft.yaml).
 # Passphrases are never read from this file.
+#
+# This example keeps the built-in doctor list. `envcraft init` writes a
+# project contract instead, with the services and env keys for one directory.
 
 doctor:
   host: 127.0.0.1

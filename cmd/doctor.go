@@ -7,6 +7,7 @@ import (
 	"io"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"strings"
 	"syscall"
 	"time"
@@ -14,8 +15,10 @@ import (
 	"github.com/charmbracelet/bubbles/spinner"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 
 	"github.com/Ahmadhaff/envcraft/internal/checker"
+	"github.com/Ahmadhaff/envcraft/internal/contract"
 )
 
 func init() {
@@ -29,10 +32,14 @@ func newDoctorCmd() *cobra.Command {
 		Short:   "Check the local development stack",
 		Long: `Dial the local stack at the same time and paint each result as it finishes.
 
-Port rows are TCP reachability, not a protocol login. Docker, Go, and Node
-are identified from their CLIs. The summary is wall-clock time. Each row is
-that check's own latency.`,
+A project contract from envcraft init replaces the built-in checks with the
+services, toolchains, and env keys that directory declares. Without a contract,
+doctor dials PostgreSQL, Redis, Docker, Go, and Node.
+
+Port rows are TCP reachability, not a protocol login. The summary is wall-clock
+time. Each row is that check's own latency.`,
 		Example: `  envcraft doctor
+  envcraft init && envcraft doctor
   envcraft doctor --postgres-port 5433 --timeout 3s`,
 		Args: cobra.NoArgs,
 		RunE: runDoctor,
@@ -71,12 +78,9 @@ func runDoctor(cmd *cobra.Command, _ []string) error {
 		return err
 	}
 
-	probes := []checker.Probe{
-		checker.Docker(),
-		checker.Port("postgres", fmt.Sprintf("PostgreSQL :%d", pg), host, pg),
-		checker.Port("redis", fmt.Sprintf("Redis :%d", redisPort), host, redisPort),
-		checker.Node(),
-		checker.Go(),
+	probes, err := assembleProbes(host, pg, redisPort)
+	if err != nil {
+		return err
 	}
 	if debug {
 		printProbePlan(cmd.ErrOrStderr(), probes)
@@ -97,6 +101,25 @@ func runDoctor(cmd *cobra.Command, _ []string) error {
 		return runDoctorTUI(probes, events, cancel, started)
 	}
 	return runDoctorPlain(cmd.OutOrStdout(), events, started, ctx)
+}
+
+func assembleProbes(host string, pg, redisPort int) ([]checker.Probe, error) {
+	if path := viper.ConfigFileUsed(); path != "" {
+		loaded, err := contract.Load(path)
+		if err != nil {
+			return nil, err
+		}
+		if loaded.Project() {
+			return loaded.Probes(filepath.Dir(path), host)
+		}
+	}
+	return []checker.Probe{
+		checker.Docker(),
+		checker.Port("postgres", fmt.Sprintf("PostgreSQL :%d", pg), host, pg),
+		checker.Port("redis", fmt.Sprintf("Redis :%d", redisPort), host, redisPort),
+		checker.Node(),
+		checker.Go(),
+	}, nil
 }
 
 func printProbePlan(w io.Writer, probes []checker.Probe) {
